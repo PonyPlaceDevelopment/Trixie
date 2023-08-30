@@ -1,1 +1,4 @@
 .env
+.vscode
+main.py
+setup_data.json
