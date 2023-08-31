@@ -14,7 +14,7 @@ load_dotenv()
 # guild_id = the guild id where the bot should work (guild id for r/place bronies is: 1086048263620276254)
 
 
-BOT_TOKEN = os.getenv("token")
+BOT_TOKEN = os.getenv("discord_token")
 guild_id = os.getenv("authserver")
 
 
@@ -36,48 +36,6 @@ def is_suspicious_username(username):
         return True
 
     return False
-
-
-def has_mod_role():  # role check for commands
-    async def predicate(ctx):
-        with open('setup_data.json', 'r') as file:
-            setup_data = json.load(file)
-
-        guild_id = ctx.guild.id
-        setup_info = setup_data.get(str(guild_id))
-
-        if setup_info:
-            mod_role_id = setup_info.get("mod_role_id")
-            if mod_role_id:
-                mod_role = discord.utils.get(ctx.guild.roles, id=mod_role_id)
-                return mod_role is not None and mod_role in ctx.author.roles
-        else:
-            await ctx.send("Pls run /setup first!")
-        return False
-
-    return commands.check(predicate)
-
-
-def has_admin_role():  # role check for commands
-    async def admin(ctx):
-        with open('setup_data.json', 'r') as file:
-            setup_data = json.load(file)
-
-        guild_id = ctx.guild.id
-        setup_info = setup_data.get(str(guild_id))
-
-        if setup_info:
-            admin_role_id = setup_info.get("admin_role_id")
-            if admin_role_id:
-                admin_role = discord.utils.get(
-                    ctx.guild.roles, id=admin_role_id)
-                return admin_role is not None and admin_role in ctx.author.roles
-        else:
-            await ctx.send("Pls run /setup first!")
-        return False
-
-    return commands.check(admin)
-
 
 class Bot(commands.Bot):
     def __init__(self):
@@ -190,7 +148,6 @@ async def kick(interaction: discord.Interaction, member: discord.Member):
 
 @bot.hybrid_command(name="purge", with_app_command=True, description="Delete messages from a channel")
 @app_commands.guilds(discord.Object(id=guild_id))
-@has_mod_role()
 async def delete_messages(ctx, channel: discord.TextChannel, limit: int):
     messages = []
     async for message in channel.history(limit=limit):
@@ -226,7 +183,6 @@ async def setup(interaction: discord.Interaction, mod_role: discord.Role, mod_ch
 
 @bot.hybrid_command(name="admin_add_role", with_app_command=True, description="Adds Roles to the list of roles that mods can add with the /addrole command")
 @app_commands.guilds(discord.Object(id=guild_id))
-@has_admin_role()
 async def add_entry(ctx, rolename: str, role: discord.Role):
     guild_id = str(ctx.guild.id)
 
@@ -252,7 +208,6 @@ async def add_entry(ctx, rolename: str, role: discord.Role):
 
 @bot.hybrid_command(name="add_role", with_app_command=True, description="Add a role to a user")
 @app_commands.guilds(discord.Object(id=guild_id))
-@has_mod_role()
 async def add_role(ctx, member: discord.Member, role: discord.Role):
     guild_id = str(ctx.guild.id)
 
@@ -278,7 +233,6 @@ async def add_role(ctx, member: discord.Member, role: discord.Role):
 
 @bot.hybrid_command(name="testname", with_app_command=True, description="Setup cmd")
 @app_commands.guilds(discord.Object(id=guild_id))
-@has_mod_role()
 async def membertest(ctx, testname: str):
     if is_suspicious_username(testname):
         await ctx.send("SUS")
@@ -311,6 +265,97 @@ async def on_member_join(member):
             else:
                 print(
                     "[Main ERROR]: No Setup Data available! No role was handed out! (Run /setup)")
+
+
+@bot.event
+async def on_message_edit(before, after):
+    with open('setup_data.json', 'r') as file:
+        setup_data = json.load(file)
+        server_id = after.author.guild.id
+        if setup_data:
+            channel_id = setup_data.get(str(server_id), {}).get("log_channel_id")
+            channel = bot.get_channel(channel_id)
+            if after.author.bot:
+                return
+            embed = discord.Embed(color=discord.Color.blue())
+            embed.add_field(name=f"Message Edited in {after.channel.mention}", value = f"[Jump to Message](https://discordapp.com/channels/{server_id}/{after.channel.id}/{after.id})", inline=False)
+            embed.add_field(name="User", value=after.author.mention, inline=False)
+            embed.set_author(name=before.author.name, icon_url=before.author.avatar.url)
+            embed.add_field(name="Before", value=before.content, inline=False)
+            embed.add_field(name="After", value=after.content, inline=False)
+            embed.set_footer(text=f"User ID: {after.author.id}")
+            await channel.send(embed=embed)
+        else:
+            return
+
+@bot.event
+async def on_member_join(member):
+     with open('setup_data.json', 'r') as file:
+        setup_data = json.load(file)
+        server_id = member.guild.id
+        if setup_data:
+            channel_id = setup_data.get(str(server_id), {}).get("log_channel_id")
+            channel = bot.get_channel(channel_id)
+            if member.bot:
+                return
+            embed = discord.Embed(description = f"{member.mention} {member.name}", color=discord.Color.green())
+            embed.set_author(name="Member Joined", icon_url=member.avatar.url)
+            embed.add_field(name="Created at", value=member.created_at, inline=False)
+            embed.set_footer(text=f"User ID: {member.id}")
+            await channel.send(embed=embed)
+
+@bot.event
+async def on_member_remove(member):
+    with open('setup_data.json', 'r') as file:
+        setup_data = json.load(file)
+        server_id = member.guild.id
+        if setup_data:
+            channel_id = setup_data.get(str(server_id), {}).get("log_channel_id")
+            channel = bot.get_channel(channel_id)
+            if member.bot:
+                return
+            embed = discord.Embed(description = f"{member.mention} {member.name}", color=discord.Color.green())
+            embed.set_author(name="Member Left", icon_url=member.avatar.url)
+            embed.set_footer(text=f"User ID: {member.id}")
+            await channel.send(embed=embed)
+
+#@bot.event
+#async def on_member_update(before, after):
+    #with open('setup_data.json', 'r') as file:
+        #setup_data = json.load(file)
+        #server_id = before.guild.id
+        # setup_data:
+            #channel_id = setup_data.get(str(server_id), {}).get("log_channel_id")
+            #channel = bot.get_channel(channel_id)
+            #if before.bot:
+                #return
+            #embed=discord.Embed(description = f"{after.mention} {after.name}", color=discord.Color.orange())
+            #embed.set_author(name="User updated", icon_url=after.avatar.url)
+            
+            
+
+            #embed.add_field(name="Before", value=before.global_name)
+            #embed.add_field(name="After", value=after.global_name)
+            #embed.set_footer(text=f"User ID: {after.id}")
+            #await channel.send(embed=embed)
+
+@bot.event
+async def on_message_delete(message):
+     with open('setup_data.json', 'r') as file:
+        setup_data = json.load(file)
+        server_id = message.author.guild.id
+        if setup_data:
+            channel_id = setup_data.get(str(server_id), {}).get("log_channel_id")
+            channel = bot.get_channel(channel_id)
+            if message.author.bot:
+                return
+            embed = discord.Embed(color=discord.Color.red())
+            embed.set_author(name=message.author.name, icon_url=message.author.avatar.url)
+            embed.add_field(name=f"Message deleted in {message.channel.mention}", value=message.content, inline=False)
+            embed.add_field(name="Author", value=message.author.mention, inline = False)
+            embed.set_footer(text=f"Message ID: {message.id}")
+            await channel.send(embed=embed)
+
 
 
 bot.run(BOT_TOKEN)
