@@ -146,14 +146,14 @@ async def kick(interaction: discord.Interaction, member: discord.Member):
     await interaction.response.send_message(f"{member.mention} got kicked out of {voice_channel.mention}")
 
 
-@bot.hybrid_command(name="purge", with_app_command=True, description="Delete messages from a channel")
+@bot.tree.command(name="purge", description="Delete messages from a channel", guild=discord.Object(id=guild_id))
 @app_commands.guilds(discord.Object(id=guild_id))
-async def delete_messages(ctx, channel: discord.TextChannel, limit: int):
+async def delete_messages(interaction: discord.Interaction, channel: discord.TextChannel, limit: int):
     messages = []
     async for message in channel.history(limit=limit):
         messages.append(message)
     await channel.delete_messages(messages)
-    await ctx.send(f"{limit} messages got deleted in {channel.mention}.")
+    await interaction.response.send_message(f"{limit} messages got deleted in {channel.mention}.")
 
 
 @bot.tree.command(name="setup", description="Setup cmd")
@@ -181,10 +181,10 @@ async def setup(interaction: discord.Interaction, mod_role: discord.Role, mod_ch
     await interaction.response.send_message("Setup complete! Now the bot is ready to use with the provided configurations.")
 
 
-@bot.hybrid_command(name="admin_add_role", with_app_command=True, description="Adds Roles to the list of roles that mods can add with the /addrole command")
+@bot.tree.command(name="admin_add_role", description="Adds Roles to the list of roles that mods can add with the /addrole command", guild=discord.Object(id=guild_id))
 @app_commands.guilds(discord.Object(id=guild_id))
-async def add_entry(ctx, rolename: str, role: discord.Role):
-    guild_id = str(ctx.guild.id)
+async def add_entry(interaction: discord.Interaction, rolename: str, role: discord.Role):
+    guild_id = str(interaction.guild.id)
 
     try:
         with open('mod_role_data.json', 'r') as file:
@@ -203,13 +203,13 @@ async def add_entry(ctx, rolename: str, role: discord.Role):
     with open('mod_role_data.json', 'w') as file:
         json.dump(data, file, indent=4)
 
-    await ctx.send(f'Role "{rolename}" with value "{role.mention}" added for this guild.')
+    await interaction.response.send_message(f'Role "{rolename}" with value "{role.mention}" added for this guild.')
 
 
-@bot.hybrid_command(name="add_role", with_app_command=True, description="Add a role to a user")
+@bot.tree.command(name="add_role", description="Add a role to a user", guild=discord.Object(id=guild_id))
 @app_commands.guilds(discord.Object(id=guild_id))
-async def add_role(ctx, member: discord.Member, role: discord.Role):
-    guild_id = str(ctx.guild.id)
+async def add_role(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+    guild_id = str(interaction.guild.id)
 
     try:
         with open('mod_role_data.json', 'r') as file:
@@ -218,27 +218,17 @@ async def add_role(ctx, member: discord.Member, role: discord.Role):
         data = {}
 
     if guild_id not in data or role.id not in data[guild_id].values():
-        await ctx.send("You don't have the permission to add this role.")
+        await interaction.response.send_message("You don't have the permission to add this role.")
         return
 
     if role not in member.roles:
         try:
             await member.add_roles(role)
-            await ctx.send(f'Role "{role.name}" added to {member.mention}.')
+            await interaction.response.send_message(f'Role "{role.name}" added to {member.mention}.')
         except discord.Forbidden:
-            await ctx.send("I don't have the necessary permissions to add this role.")
+            await interaction.response.send_message("I don't have the necessary permissions to add this role.")
     else:
-        await ctx.send(f'{member.mention} already has the role "{role.name}".')
-
-
-@bot.hybrid_command(name="testname", with_app_command=True, description="Setup cmd")
-@app_commands.guilds(discord.Object(id=guild_id))
-async def membertest(ctx, testname: str):
-    if is_suspicious_username(testname):
-        await ctx.send("SUS")
-    else:
-        await ctx.send("NOT SUS YAY")
-
+        await interaction.response.send_message(f'{member.mention} already has the role "{role.name}".')
 
 @bot.event
 async def on_member_join(member):
