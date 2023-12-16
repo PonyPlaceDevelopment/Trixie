@@ -513,7 +513,11 @@ async def on_member_join(member):
         server_id = member.guild.id
         if setup_data:
             channel_id = setup_data.get(str(server_id), {}).get("log_channel_id")
+            mod_channel_id = setup_data.get(str(server_id), {}).get("mod_channel_id")
+            mod_channel = bot.get_channel(mod_channel_id)
             channel = bot.get_channel(channel_id)
+            if is_suspicious_username(member.name):
+                await mod_channel.send(f"{member.mention} got detected by the sus name detection")
             if member.bot:
                 return
             embed = discord.Embed(
