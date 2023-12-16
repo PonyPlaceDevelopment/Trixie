@@ -2,3 +2,8 @@
 .vscode
 main.py
 setup_data.json
+starboard.py
+test.py
+music.py
+mod_role_data.json
+__pycache__
