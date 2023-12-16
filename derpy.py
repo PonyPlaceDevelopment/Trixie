@@ -1122,7 +1122,7 @@ async def on_message(message):
             save(levels, "levels.json")
 
   # After XP is earned, update the cooldown
-    #xp_cooldown[message.author.id] = time.time()
+    xp_cooldown[message.author.id] = time.time()
 
 @bot.event
 async def on_ready():
