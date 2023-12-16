@@ -11,7 +11,6 @@ import requests
 import random
 from pytz import timezone
 from io import BytesIO
-from petpetgif import petpet as petpetgif
 
 load_dotenv()
 
