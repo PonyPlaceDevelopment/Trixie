@@ -1035,7 +1035,7 @@ async def on_ready():
     global guild
     await bot.change_presence(
         activity=discord.Activity(
-            type=discord.ActivityType.watching, name="LittlyshyFiM"
+            type=discord.ActivityType.watching, name="Pedrito"
         )
     )
     print("logged in")
