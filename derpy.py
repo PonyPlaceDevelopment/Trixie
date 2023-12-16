@@ -947,6 +947,46 @@ async def ticket_system(
     view = TicketView()
     message = await view.interaction_callback(interaction)
     return message
+@bot.tree.command(name="create_channel", description="Admins are to lazy so this exists")
+async def c_channel(interaction: discord.Interaction, channel_name: str, category: discord.CategoryChannel = None, category_name: str = None):
+    guild = interaction.guild
+    user = interaction.user
+    if category is not None:
+        overwrites = {
+                guild.default_role: discord.PermissionOverwrite(
+                    view_channel=False, read_messages=False
+                ),
+                guild.me: discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True
+                ),
+                user: discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True
+                )
+            }
+        await category.create_text_channel(
+            f"{channel_name}",
+            overwrites = overwrites
+        )
+        await interaction.response.send_message("Channel created", ephemeral=True)
+    else:
+        if category_name is not None:
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(
+                    view_channel=False, read_messages=False
+                ),
+                guild.me: discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True
+                ),
+                user: discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True
+                )
+            }
+        categoryname = await interaction.guild.create_category(name=category_name)
+        await categoryname.create_text_channel(
+            f"{channel_name}",
+            overwrites = overwrites
+        )
+        await interaction.response.send_message("Channel created", ephemeral=True)
 
 
 @bot.tree.command(name="unsync", description="Unsync unused commands")
@@ -1133,7 +1173,8 @@ async def on_ready():
         )
     )
     print("logged in")
-    await bot.tree.sync(guild=discord.Object(id=1086048263620276254))
+    await bot.tree.sync(guild=discord.Object(id=1086048263620276254)) # place
+    #await bot.tree.sync(guild=discord.Object(id=1183697496342536252)) # test
     try:
         synced = await bot.tree.sync()
         print(f"Synced{len(synced)} command(s)")
