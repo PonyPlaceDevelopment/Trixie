@@ -769,15 +769,14 @@ async def close_request(interaction: discord.Interaction, reason: str):
             )
             await interaction.channel.edit(name=f"closed-{interaction.channel.name}")
             await interaction.user.remove_roles(timeout_role)
-            role = discord.utils.get(
-                interaction.guild.roles, name=f"{interaction.user.name} ticket perm"
-            )
-            await role.delete()
             await interaction.channel.send(
                 f"Ticket closed by {interaction.user.mention}. Reason: {reason}"
             )
             await self.disable_buttons(interaction)
-            user_id = 1014344645020495942  # Replace this with the ID of the user you want to modify permissions for
+            user_id = 1014344645020495942
+            await interaction.channel.set_permissions(
+                interaction.user, read_messages=False, send_messages=False, view_channel=False
+            )
             user = await interaction.guild.fetch_member(user_id)
             await interaction.channel.set_permissions(
                 user, read_messages=True, send_messages=True
@@ -788,6 +787,7 @@ async def close_request(interaction: discord.Interaction, reason: str):
                 mod_role = discord.utils.get(interaction.guild.roles, id=mod_role_id)
             await interaction.channel.set_permissions(
                 mod_role, read_messages=True, send_messages=True
+            
             )
             embed = discord.Embed(
                 description=f"Ticket closed by {interaction.user.mention}",
@@ -819,15 +819,7 @@ user_role = None
 
 @bot.tree.command(name="ticket", description="setup ticket system")
 @app_commands.choices(
-    button_color1=[
-        discord.app_commands.Choice(name="Blue", value="primary"),
-        discord.app_commands.Choice(name="Grey", value="grey"),
-        discord.app_commands.Choice(name="Green", value="green"),
-        discord.app_commands.Choice(name="Red", value="red"),
-    ]
-)
-@app_commands.choices(
-    button_color2=[
+    button_color=[
         discord.app_commands.Choice(name="Blue", value="primary"),
         discord.app_commands.Choice(name="Grey", value="grey"),
         discord.app_commands.Choice(name="Green", value="green"),
@@ -838,10 +830,8 @@ async def ticket_system(
     interaction: discord.Interaction,
     channel: discord.TextChannel,
     button_message: str,
-    type1: str,
-    button_color1: str,
-    type2: str = None,
-    button_color2: str = None,
+    ticket_name: str,
+    button_color: str
 ):
     setup_check = load("setup_data.json")
     if setup_check:
@@ -910,7 +900,7 @@ async def ticket_system(
         }
 
         @discord.ui.button(
-            label=f" Create {type1} ticket", style=button_styless[button_color1]
+            label=f" Create {ticket_name} ticket", style=button_styless[button_color]
         )
         async def ticket_callback(self, interaction, button):
             guild = interaction.guild
@@ -925,11 +915,6 @@ async def ticket_system(
                 print(ticket_category_id)
                 category = discord.utils.get(guild.categories, id=ticket_category_id)
                 print(category)
-
-            user_role = await guild.create_role(
-                name=f"{interaction.user.name} ticket perm"
-            )
-
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(
                     view_channel=False, read_messages=False
@@ -937,86 +922,22 @@ async def ticket_system(
                 guild.me: discord.PermissionOverwrite(
                     read_messages=True, send_messages=True
                 ),
-                user_role: discord.PermissionOverwrite(
+                user: discord.PermissionOverwrite(
                     read_messages=True, send_messages=True
                 ),
             }
 
             channel = await category.create_text_channel(
-                f"{type1}-ticket-{username}", overwrites=overwrites
+                f"{ticket_name}-ticket-{username}", overwrites=overwrites
             )
 
             await interaction.user.add_roles(ticket_role)
-            await interaction.user.add_roles(user_role)
             welcomeView = TicketMessageView()
             message = await welcomeView.interaction_close_callback(interaction, channel)
             await interaction.response.send_message(
                 f"Ticket created! {channel.mention}", ephemeral=True
             )
             return message
-
-        if type2 is not None:
-            button_styles = {
-                "primary": discord.ButtonStyle.primary,
-                "grey": discord.ButtonStyle.grey,
-                "green": discord.ButtonStyle.green,
-                "red": discord.ButtonStyle.red,
-            }
-
-            @discord.ui.button(
-                label=f" Create {type2} ticket", style=button_styles[button_color2]
-            )
-            async def ticket_bewerbung_callback(self, interaction, button):
-                guild = interaction.guild
-                username = interaction.user.name
-                user = interaction.user
-                data = load("setup_data.json")
-                if data and str(interaction.guild_id) in data:
-                    mod_role_id = data.get(str(interaction.guild_id), {}).get(
-                        "mod_role_id"
-                    )
-                    mod_role = discord.utils.get(
-                        interaction.guild.roles, id=mod_role_id
-                    )
-                data = load("setup_data.json")
-                if data and str(interaction.guild_id) in data:
-                    ticket_role_id = data.get(
-                        str(interaction.guild_id), {}.get("ticket_role")
-                    )
-                    ticket_role = discord.utils.get(guild.roles, id=ticket_role_id)
-                    ticket_category_id = data.get(
-                        str(interaction.guild_id), {}.get("ticket_category")
-                    )
-                    category = discord.utils.get(guild.categories, id=ticket_category_id)
-                user_role = await guild.create_role(
-                    name=f"{interaction.user.name} ticket perm"
-                )
-                overwrites = {
-                    guild.default_role: discord.PermissionOverwrite(
-                        view_channel=False, read_messages=False
-                    ),
-                    guild.me: discord.PermissionOverwrite(
-                        read_messages=True, send_messages=True
-                    ),
-                    user_role: discord.PermissionOverwrite(
-                        read_messages=True, send_messages=True
-                    ),
-                    # mod_role: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-                }
-
-                channel = await category.create_text_channel(
-                    f"{type2}-ticket-{username}", overwrites=overwrites
-                )
-                await interaction.user.add_roles(ticket_role)
-                await interaction.user.add_roles(user_role)
-                welcomeView = TicketMessageView()
-                message = await welcomeView.interaction_close_callback(
-                    interaction, channel
-                )
-                await interaction.response.send_message(
-                    f"Ticket created! {channel.mention}", ephemeral=True
-                )
-                return message
 
     view = TicketView()
     message = await view.interaction_callback(interaction)
@@ -1039,7 +960,7 @@ async def on_ready():
         )
     )
     print("logged in")
-    await bot.tree.sync(guild=discord.Object(id=1086048263620276254))
+    #await bot.tree.sync(guild=discord.Object(id=1086048263620276254))
     try:
         synced = await bot.tree.sync()
         print(f"Synced{len(synced)} command(s)")
