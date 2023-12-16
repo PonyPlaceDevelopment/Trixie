@@ -967,10 +967,9 @@ async def levelcard(interaction: discord.Interaction,
   levels = load("levels.json")
 
   if levels is not None and guild_id in levels and user_id in levels[guild_id]:
-    user_data = levels[guild_id][user_id][0]
     username = user.name
-    level = user_data["level"]
-    current_xp = user_data["xp"]
+    level = levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("level")
+    current_xp = levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("xp")
     next_level = 5 * (level ^ 2) + (50 * level) + 100
 
     card_width = 380
@@ -981,10 +980,12 @@ async def levelcard(interaction: discord.Interaction,
     font = ImageFont.load_default()
     large_font = ImageFont.load_default()
     draw.text((20, 20),
-              f"{username}'s Level Card",
+              f"{username}'s Card",
               fill=(0, 0, 0),
               font=large_font)
     draw.text((20, 40), f"Level: {level}", fill=(0, 0, 0), font=large_font)
+    draw.text((20, 60), f"{current_xp}/{next_level} XP", fill=(0, 0, 0), font=large_font)
+
 
     # Circular progress bar creation
     progress_bar_position = (200, 55)  # Adjust the position of the circular progress bar
@@ -1020,7 +1021,7 @@ async def levelcard(interaction: discord.Interaction,
     image.save("level_card.png")
 
     # Send the level card
-    await interaction.response.send_message(file=discord.File("level_card.png", ephemeral=True)
+    await interaction.response.send_message(file=discord.File("level_card.png")
                                             )
     os.remove("level_card.png")
   else:
@@ -1035,80 +1036,93 @@ xp_cooldown = {}
 
 @bot.event
 async def on_message(message):
-  if message.author.bot or message.guild is None:
-    return
+    if message.author.bot or message.guild is None:
+        return
 
-  # Check if user has a cooldown
-  user_id = str(message.author.id)
-  if user_id in xp_cooldown and time.time() - xp_cooldown[user_id] < 60:
-    return
+    # Check if user has a cooldown
+    if str(message.author.id) in xp_cooldown and time.time() - xp_cooldown[message.author.id] < 60:
+        print("Test")
+        return
 
-  try:
-    levels = load("levels.json")
-  except Exception as e:
-    print(e)
-    levels = None
+    try:
+        levels = load("levels.json")
+    except Exception as e:
+        print(e)
+        levels = None
 
-  if levels is None:
-    # Initialize new guild and user entry
-    add_xp = random.randint(15, 25)
-    current_xp = 0
-    xp = current_xp + add_xp
-    lvl = 0
-    next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+    if levels is None:
+        levels = {}
+    if str(message.guild.id) not in levels:
+        levels[str(message.guild.id)] = {}
+    if str(message.author.id) not in levels[str(message.guild.id)]:
+        levels[str(message.guild.id)][str(message.author.id)] = {}
 
-    if xp >= next_level:
-      xp = xp - next_level
-      lvl = lvl + 1
+        # Initialize new guild and user entry
+        add_xp = random.randint(15, 25)
+        current_xp = 0
+        xp = current_xp + add_xp
+        lvl = 0
+        next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
 
-    levels = {
-        f"{str(message.guild.id)}": {
-            f"{str(message.author.id)}": [{
-                "level": lvl,
-                "xp": xp
-            }]
-        }
-    }
-    save("levels.json", levels)
-  else:
-    guild_id = str(message.guild.id)
-    user_id = str(message.author.id)
+        if xp >= next_level:
+            xp = xp - next_level
+            lvl = lvl + 1
 
-    if guild_id not in levels:
-      levels[guild_id] = {}
-
-    if user_id not in levels[guild_id]:
-      # Initialize new user entry
-      add_xp = random.randint(15, 25)
-      current_xp = 0
-      xp = current_xp + add_xp
-      lvl = 0
-      next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
-
-      if xp >= next_level:
-        xp = xp - next_level
-        lvl = lvl + 1
-
-      levels[guild_id][user_id] = [{"level": lvl, "xp": xp}]
-      save("levels.json", levels)
+        levels[str(message.guild.id)][str(message.author.id)].update({
+            "level": lvl,
+            "xp": xp 
+        })
+        
+        save(levels, "levels.json")
     else:
-      # Existing user, update their data
-      user_levels = levels[guild_id][user_id]
-      lvl = user_levels[0]["level"]
-      current_xp = user_levels[0]["xp"]
-      add_xp = random.randint(15, 25)
-      xp = current_xp + add_xp
-      next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
 
-      if xp >= next_level:
-        xp = xp - next_level
-        lvl = lvl + 1
+        if levels is None:
+            levels = {}
+        if str(message.guild.id) not in levels:
+            levels[str(message.guild.id)] = {}
+        if str(message.author.id) not in levels[str(message.guild.id)]:
+            levels[str(message.guild.id)][str(message.author.id)] = {}
+        # Initialize new user entry
+            add_xp = random.randint(15, 25)
+            current_xp = 0
+            xp = current_xp + add_xp
+            lvl = 0
+            next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
 
-      levels[guild_id][user_id] = [{"level": lvl, "xp": xp}]
-      save("levels.json", levels)
+            if xp >= next_level:
+                xp = xp - next_level
+                lvl = lvl + 1
+                print(xp, lvl)
+
+            levels[str(message.guild.id)][str(message.author.id)].update({
+                "level": lvl,
+                "xp": xp 
+            })
+            save(levels, "levels.json")
+        else:
+        # Existing user, update their data
+            # user_levels = levels[str(guild_id)][str(user_id)]
+            lvl = levels.get(str(message.guild.id), {}).get(str(message.author.id), {}).get("level")
+            current_xp = levels.get(str(message.guild.id), {}).get(str(message.author.id), {}).get("xp")
+            add_xp = random.randint(15, 25)
+            xp = current_xp + add_xp
+            print(xp)
+            next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+
+            if xp >= next_level:
+                xp = xp - next_level
+                lvl = lvl + 1
+                print(xp, lvl)
+
+            levels[str(message.guild.id)][str(message.author.id)].update({
+                "level": lvl,
+                "xp": xp 
+            })
+            print(levels)
+            save(levels, "levels.json")
 
   # After XP is earned, update the cooldown
-  xp_cooldown[user_id] = time.time()
+    #xp_cooldown[message.author.id] = time.time()
 
 @bot.event
 async def on_ready():
