@@ -1133,7 +1133,7 @@ async def on_ready():
         )
     )
     print("logged in")
-    #await bot.tree.sync(guild=discord.Object(id=1086048263620276254))
+    await bot.tree.sync(guild=discord.Object(id=1086048263620276254))
     try:
         synced = await bot.tree.sync()
         print(f"Synced{len(synced)} command(s)")
