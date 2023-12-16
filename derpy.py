@@ -20,7 +20,6 @@ load_dotenv()
 
 
 BOT_TOKEN = os.getenv("place")
-guild_id = os.getenv("authserver")
 
 
 def is_suspicious_username(username):
@@ -367,7 +366,6 @@ async def kick(interaction: discord.Interaction, member: discord.Member):
 
 
 @bot.tree.command(name="purge", description="Delete messages from a channel")
-@app_commands.guilds(discord.Object(id=guild_id))
 async def delete_messages(
     interaction: discord.Interaction, channel: discord.TextChannel, limit: int
 ):
@@ -1041,7 +1039,7 @@ async def on_ready():
         )
     )
     print("logged in")
-    await bot.tree.sync(guild=discord.Object(id=guild_id))
+    await bot.tree.sync(guild=discord.Object(id=1086048263620276254))
     try:
         synced = await bot.tree.sync()
         print(f"Synced{len(synced)} command(s)")
