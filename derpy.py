@@ -1020,12 +1020,12 @@ async def levelcard(interaction: discord.Interaction,
     image.save("level_card.png")
 
     # Send the level card
-    await interaction.response.send_message(file=discord.File("level_card.png")
+    await interaction.response.send_message(file=discord.File("level_card.png", ephemeral=True)
                                             )
     os.remove("level_card.png")
   else:
     await interaction.response.send_message(
-        "You don't have a level yet. Start chatting to earn XP!")
+        "You don't have a level yet. Start chatting to earn XP!", ephemeral=True)
 
 
 # commands
