@@ -11,7 +11,8 @@ import requests
 import random
 from pytz import timezone
 from io import BytesIO
-
+import time
+from PIL import Image, ImageDraw, ImageFont
 load_dotenv()
 
 # .env file
@@ -953,7 +954,167 @@ async def test(interaction: discord.Interaction):
     guild = interaction.guild_id
     await interaction.response.send_message("Unsynced Commands")
     await bot.tree.sync(guild=discord.Object(id=guild))
+# level system
+@bot.tree.command(name="rank", description="Display your current chat level")
+async def levelcard(interaction: discord.Interaction,
+                    user: discord.User = None):
+  if user is None:
+    user = interaction.user
 
+  guild_id = str(interaction.guild_id)
+  user_id = str(user.id)
+
+  levels = load("levels.json")
+
+  if levels is not None and guild_id in levels and user_id in levels[guild_id]:
+    user_data = levels[guild_id][user_id][0]
+    username = user.name
+    level = user_data["level"]
+    current_xp = user_data["xp"]
+    next_level = 5 * (level ^ 2) + (50 * level) + 100
+
+    card_width = 380
+    card_height = 110
+    progress_bar_radius = 50  # Adjust the radius for the circular progress bar
+    image = Image.new("RGB", (card_width, card_height), (255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+    large_font = ImageFont.load_default()
+
+    username = user.name
+    level = 5  # Replace with the current level for testing
+    current_xp = 200  # Replace with the current XP for testing
+    next_level = 1000  # Replace with the XP required for the next level for testing
+
+    draw.text((20, 20),
+              f"{username}'s Level Card",
+              fill=(0, 0, 0),
+              font=large_font)
+    draw.text((20, 40), f"Level: {level}", fill=(0, 0, 0), font=large_font)
+
+    # Circular progress bar creation
+    progress_bar_position = (200, 55)  # Adjust the position of the circular progress bar
+    end_angle = int(360 * (current_xp / next_level))
+    draw.arc([(progress_bar_position[0] - progress_bar_radius, progress_bar_position[1] - progress_bar_radius),
+              (progress_bar_position[0] + progress_bar_radius, progress_bar_position[1] + progress_bar_radius)],
+             start=0,
+             end=360,
+             fill=(200, 200, 200),
+             width=20)  # Draw background circle
+
+    draw.arc([(progress_bar_position[0] - progress_bar_radius, progress_bar_position[1] - progress_bar_radius),
+              (progress_bar_position[0] + progress_bar_radius, progress_bar_position[1] + progress_bar_radius)],
+             start=0,
+             end=end_angle,
+             fill=(0, 128, 128),
+             width=20)  # Draw progress arc
+
+    # Draw the level number in the center of the circular progress bar
+    level_text = f"{level}"
+    text_position = (progress_bar_position[0] - len(level_text) * 5, progress_bar_position[1] - 7)
+    draw.text(text_position, level_text, fill=(0, 0, 0), font=font)
+
+    # Avatar handling
+    avatar_response = requests.get(user.avatar.url)
+    if avatar_response.status_code == 200:
+        avatar_image = Image.open(BytesIO(avatar_response.content))
+        avatar_image = avatar_image.resize((80, 80))  # Resize the avatar image if needed
+        image.paste(avatar_image, (290, 10))
+    else:
+        print(f"Failed to fetch the image. Status code: {avatar_response.status_code}")
+
+    image.save("level_card.png")
+
+    # Send the level card
+    await interaction.response.send_message(file=discord.File("level_card.png")
+                                            )
+    os.remove("level_card.png")
+  else:
+    await interaction.response.send_message(
+        "You don't have a level yet. Start chatting to earn XP!")
+
+
+# commands
+
+xp_cooldown = {}
+
+
+@bot.event
+async def on_message(message):
+  if message.author.bot or message.guild is None:
+    return
+
+  # Check if user has a cooldown
+  user_id = str(message.author.id)
+  if user_id in xp_cooldown and time.time() - xp_cooldown[user_id] < 60:
+    return
+
+  try:
+    levels = load("levels.json")
+  except Exception as e:
+    print(e)
+    levels = None
+
+  if levels is None:
+    # Initialize new guild and user entry
+    add_xp = random.randint(15, 25)
+    current_xp = 0
+    xp = current_xp + add_xp
+    lvl = 0
+    next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+
+    if xp >= next_level:
+      xp = xp - next_level
+      lvl = lvl + 1
+
+    levels = {
+        f"{str(message.guild.id)}": {
+            f"{str(message.author.id)}": [{
+                "level": lvl,
+                "xp": xp
+            }]
+        }
+    }
+    save("levels.json", levels)
+  else:
+    guild_id = str(message.guild.id)
+    user_id = str(message.author.id)
+
+    if guild_id not in levels:
+      levels[guild_id] = {}
+
+    if user_id not in levels[guild_id]:
+      # Initialize new user entry
+      add_xp = random.randint(15, 25)
+      current_xp = 0
+      xp = current_xp + add_xp
+      lvl = 0
+      next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+
+      if xp >= next_level:
+        xp = xp - next_level
+        lvl = lvl + 1
+
+      levels[guild_id][user_id] = [{"level": lvl, "xp": xp}]
+      save("levels.json", levels)
+    else:
+      # Existing user, update their data
+      user_levels = levels[guild_id][user_id]
+      lvl = user_levels[0]["level"]
+      current_xp = user_levels[0]["xp"]
+      add_xp = random.randint(15, 25)
+      xp = current_xp + add_xp
+      next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+
+      if xp >= next_level:
+        xp = xp - next_level
+        lvl = lvl + 1
+
+      levels[guild_id][user_id] = [{"level": lvl, "xp": xp}]
+      save("levels.json", levels)
+
+  # After XP is earned, update the cooldown
+  xp_cooldown[user_id] = time.time()
 
 @bot.event
 async def on_ready():
