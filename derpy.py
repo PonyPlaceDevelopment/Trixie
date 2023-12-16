@@ -980,12 +980,6 @@ async def levelcard(interaction: discord.Interaction,
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
     large_font = ImageFont.load_default()
-
-    username = user.name
-    level = 5  # Replace with the current level for testing
-    current_xp = 200  # Replace with the current XP for testing
-    next_level = 1000  # Replace with the XP required for the next level for testing
-
     draw.text((20, 20),
               f"{username}'s Level Card",
               fill=(0, 0, 0),
