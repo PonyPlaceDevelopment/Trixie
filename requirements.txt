@@ -12,7 +12,7 @@ botw-utils==0.2.3
 Brotli==1.1.0
 bs4==0.0.1
 cachetools==5.3.1
-cefpython3==66.1
+cefpython3
 certifi==2022.12.7
 cffi==1.16.0
 chardet==5.2.0
