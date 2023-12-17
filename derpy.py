@@ -1080,7 +1080,7 @@ async def on_message(message):
         return
 
     # Check if user has a cooldown
-    if str(message.author.id) in xp_cooldown and time.time() - xp_cooldown[message.author.id] < 60:
+    if str(message.author.id) in xp_cooldown and time.time() - xp_cooldown[str(message.author.id)] < 60:
         print("Test")
         return
 
@@ -1162,7 +1162,7 @@ async def on_message(message):
             save(levels, "levels.json")
 
   # After XP is earned, update the cooldown
-    xp_cooldown[message.author.id] = time.time()
+    xp_cooldown[str(message.author.id)] = time.time()
 
 @bot.event
 async def on_ready():
