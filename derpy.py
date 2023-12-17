@@ -1,4 +1,4 @@
-#from typing import Optional, Union
+from typing import Optional, Self, Union
 from discord import app_commands
 from discord.ext import commands
 import discord
@@ -13,6 +13,7 @@ from pytz import timezone
 from io import BytesIO
 import time
 from PIL import Image, ImageDraw, ImageFont
+
 load_dotenv()
 
 # .env file
@@ -40,6 +41,115 @@ def is_suspicious_username(username):
         return True
 
     return False
+
+
+class TicketMessageView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+
+    async def interaction_close_callback(
+        self, interaction: discord.Interaction, channelus: discord.TextChannel
+    ):
+        message_content = f"Welcome {interaction.user.mention}! Please stand by until a Moderator has time for your problem"
+        message = await channelus.send(message_content)
+        return message
+
+    @discord.ui.button(label="Delete ticket", style=discord.ButtonStyle.red)
+    async def ticket_close_callback(self, interaction, button):
+        data = load("setup_data.json")
+        if data and str(interaction.guild_id) in data:
+            mod_role_id = data.get(str(interaction.guild_id), {}).get("mod_role_id")
+            mod_role = discord.utils.get(interaction.guild.roles, id=mod_role_id)
+            if mod_role in interaction.user.roles:
+                await interaction.response.send_message("Deleting ticket...")
+                await interaction.channel.delete()
+            else:
+                await interaction.response.send_message(
+                    "You dont have permission to do that!", ephemeral=True
+                )
+
+
+class TicketView(discord.ui.View):
+    def __init__(
+        self,
+        interaction: discord.Interaction,
+        textchannel: discord.TextChannel,
+        button_message: str,
+        button_color: str,
+        ticket_name: str,
+    ):
+        super().__init__()
+        self.channel = textchannel
+        self.guild_id = interaction.guild_id
+        self.button_message = button_message
+        self.button_color = button_color
+        self.ticket_name = ticket_name
+
+    async def interaction_callback(self, interaction: discord.Interaction):
+        message_content = f"{self.button_message}"
+        message = await self.channel.send(message_content)
+        await interaction.response.send_message("Ticket button(s) created")
+
+        return message
+
+    button_styless = {
+        "primary": discord.ButtonStyle.primary,
+        "grey": discord.ButtonStyle.grey,
+        "green": discord.ButtonStyle.green,
+        "red": discord.ButtonStyle.red,
+    }
+
+    def button_label(self):
+        return f" Create {self.ticket_name} ticket"
+
+    def set_button_color(self):
+        button_styless = {
+            "primary": discord.ButtonStyle.primary,
+            "grey": discord.ButtonStyle.grey,
+            "green": discord.ButtonStyle.green,
+            "red": discord.ButtonStyle.red,
+        }
+        return button_styless[self.button_color]
+
+    @discord.ui.button(label=button_label, style=set_button_color)
+    async def ticket_callback(self, interaction, button):
+        guild = interaction.guild
+        username = interaction.user.name
+        user = interaction.user
+        data = load("setup_data.json")
+        if data and str(interaction.guild_id) in data:
+            ticket_role_id = data.get(str(interaction.guild_id), {}).get("ticket_role")
+            ticket_role = discord.utils.get(guild.roles, id=ticket_role_id)
+            ticket_category_id = data.get(str(interaction.guild_id), {}).get(
+                "ticket_category"
+            )
+
+            print(ticket_category_id)
+            category = discord.utils.get(guild.categories, id=ticket_category_id)
+            print(category)
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(
+                view_channel=False, read_messages=False
+            ),
+            guild.me: discord.PermissionOverwrite(
+                read_messages=True, send_messages=True
+            ),
+            user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        }
+
+        channel = await category.create_text_channel(
+            f"{self.ticket_name}-ticket-{interaction.user.name}", overwrites=overwrites
+        )
+
+        await interaction.user.add_roles(ticket_role)
+        welcomeView = (
+            TicketMessageView()
+        )  # No error since i still have to make this view puplic
+        message = await welcomeView.interaction_close_callback(interaction, channel)
+        await interaction.response.send_message(
+            f"Ticket created! {channel.mention}", ephemeral=True
+        )
+        return message
 
 
 class Bot(commands.Bot):
@@ -99,6 +209,7 @@ class TimeoutFlags(commands.FlagConverter):
     reason: str
     duration: int
 
+
 def load(file):
     try:
         with open(file, "r", encoding="UTF-8") as f:
@@ -117,6 +228,8 @@ def save(config, file):
     except Exception as e:
         print(e)
         return None
+
+
 @bot.tree.context_menu(name="ban")
 async def ban(
     interaction: discord.Interaction,
@@ -388,7 +501,7 @@ async def setup(
     mod_channel: discord.TextChannel,
     log_channel: discord.TextChannel,
     member_role: discord.Role,
-):  
+):
     with open("setup_data.json", "r") as file:
         setup_data = json.load(file)
         print(setup_data)
@@ -397,12 +510,14 @@ async def setup(
     if str(interaction.guild_id) not in setup_data:
         setup_data[str(interaction.guild_id)] = {}
 
-    setup_data[str(interaction.guild_id)].update({
-        "mod_role_id": mod_role.id,
-        "mod_channel_id": mod_channel.id,
-        "member_role_id": member_role.id,
-        "log_channel_id": log_channel.id,
-    })
+    setup_data[str(interaction.guild_id)].update(
+        {
+            "mod_role_id": mod_role.id,
+            "mod_channel_id": mod_channel.id,
+            "member_role_id": member_role.id,
+            "log_channel_id": log_channel.id,
+        }
+    )
     save(setup_data, "setup_data.json")
 
     await interaction.response.send_message(
@@ -518,7 +633,9 @@ async def on_member_join(member):
             mod_channel = bot.get_channel(mod_channel_id)
             channel = bot.get_channel(channel_id)
             if is_suspicious_username(member.name):
-                await mod_channel.send(f"{member.mention} got detected by the sus name detection")
+                await mod_channel.send(
+                    f"{member.mention} got detected by the sus name detection"
+                )
             if member.bot:
                 return
             embed = discord.Embed(
@@ -767,8 +884,12 @@ async def close_request(interaction: discord.Interaction, reason: str):
         async def close_callback(self, interaction, button):
             guild = interaction.guild
             setup_data = load("setup_data.json")
-            timeout_role_id = setup_data.get(str(interaction.guild_id), {}).get("ticket_role")
-            timeout_role = discord.utils.get(interaction.guild.roles, id=timeout_role_id)
+            timeout_role_id = setup_data.get(str(interaction.guild_id), {}).get(
+                "ticket_role"
+            )
+            timeout_role = discord.utils.get(
+                interaction.guild.roles, id=timeout_role_id
+            )
             await interaction.response.send_message(
                 "Ticket will be closed in 3 seconds."
             )
@@ -780,7 +901,10 @@ async def close_request(interaction: discord.Interaction, reason: str):
             await self.disable_buttons(interaction)
             user_id = 1014344645020495942
             await interaction.channel.set_permissions(
-                interaction.user, read_messages=False, send_messages=False, view_channel=False
+                interaction.user,
+                read_messages=False,
+                send_messages=False,
+                view_channel=False,
             )
             user = await interaction.guild.fetch_member(user_id)
             await interaction.channel.set_permissions(
@@ -792,7 +916,6 @@ async def close_request(interaction: discord.Interaction, reason: str):
                 mod_role = discord.utils.get(interaction.guild.roles, id=mod_role_id)
             await interaction.channel.set_permissions(
                 mod_role, read_messages=True, send_messages=True
-            
             )
             embed = discord.Embed(
                 description=f"Ticket closed by {interaction.user.mention}",
@@ -822,6 +945,22 @@ async def close_request(interaction: discord.Interaction, reason: str):
 user_role = None
 
 
+async def refresh_buttons(view, channel, original_message_id, content):
+    while True:
+        print("Refreshing...")
+        # Fetch the original message using its ID
+        try:
+            message = await channel.fetch_message(original_message_id)
+            # Update the message with fresh buttons
+            await message.edit(content="TEST", view=view)
+        except discord.NotFound:
+            print("YAY")
+            pass
+
+        # Wait for a certain interval before refreshing again
+        await asyncio.sleep(20)  # 300 seconds (5 minutes) interval
+
+
 @bot.tree.command(name="ticket", description="setup ticket system")
 @app_commands.choices(
     button_color=[
@@ -836,7 +975,7 @@ async def ticket_system(
     channel: discord.TextChannel,
     button_message: str,
     ticket_name: str,
-    button_color: str
+    button_color: str,
 ):
     setup_check = load("setup_data.json")
     if setup_check:
@@ -856,117 +995,41 @@ async def ticket_system(
         interaction.response.send_message(
             "Please set up ticket roles first! (/ticket_setup)", ephemeral=True
         )
+    view = TicketView(
+        interaction=interaction,
+        textchannel=interaction.channel,
+        button_message=button_message,
+        button_color=button_color,
+        ticket_name=ticket_name,
+    )
+    await view.interaction_callback(interaction)
+    message_content = f"{button_message}"
+    message = await channel.send(message_content, view=TicketView(interaction=interaction, textchannel=interaction.channel, button_message=button_message, button_color=button_color, ticket_name=ticket_name))
+    await interaction.response.send_message("Ticket button(s) created")
 
-    textchannel = channel
 
-    class TicketMessageView(discord.ui.View):
-        def __init__(self):
-            super().__init__()
-            self.text_close_channel = textchannel
-
-        async def interaction_close_callback(
-            self, interaction: discord.Interaction, channelus: discord.TextChannel
-        ):
-            message_content = f"Welcome {interaction.user.mention}! Please stand by until a Moderator has time for your problem"
-            message = await channelus.send(message_content)
-            return message
-
-        @discord.ui.button(label="Delete ticket", style=discord.ButtonStyle.red)
-        async def ticket_close_callback(self, interaction, button):
-            data = load("setup_data.json")
-            if data and str(interaction.guild_id) in data:
-                mod_role_id = data.get(str(interaction.guild_id), {}).get("mod_role_id")
-                mod_role = discord.utils.get(interaction.guild.roles, id=mod_role_id)
-                if mod_role in interaction.user.roles:
-                    await interaction.response.send_message("Deleting ticket...")
-                    await interaction.channel.delete()
-                else:
-                    await interaction.response.send_message(
-                        "You dont have permission to do that!", ephemeral=True
-                    )
-
-    class TicketView(discord.ui.View):
-        def __init__(self):
-            super().__init__()
-            self.channel = textchannel
-
-        async def interaction_callback(self, interaction: discord.Interaction):
-            message_content = f"{button_message}"
-            message = await self.channel.send(message_content, view=self)
-            await interaction.response.send_message("Ticket button(s) created")
-
-            return message
-
-        button_styless = {
-            "primary": discord.ButtonStyle.primary,
-            "grey": discord.ButtonStyle.grey,
-            "green": discord.ButtonStyle.green,
-            "red": discord.ButtonStyle.red,
-        }
-
-        @discord.ui.button(
-            label=f" Create {ticket_name} ticket", style=button_styless[button_color]
-        )
-        async def ticket_callback(self, interaction, button):
-            guild = interaction.guild
-            username = interaction.user.name
-            user = interaction.user
-            data = load("setup_data.json")
-            if data and str(interaction.guild_id) in data:
-                ticket_role_id = data.get(str(interaction.guild_id), {}).get("ticket_role")
-                ticket_role = discord.utils.get(guild.roles, id=ticket_role_id)
-                ticket_category_id = data.get(str(interaction.guild_id), {}).get("ticket_category")
-
-                print(ticket_category_id)
-                category = discord.utils.get(guild.categories, id=ticket_category_id)
-                print(category)
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(
-                    view_channel=False, read_messages=False
-                ),
-                guild.me: discord.PermissionOverwrite(
-                    read_messages=True, send_messages=True
-                ),
-                user: discord.PermissionOverwrite(
-                    read_messages=True, send_messages=True
-                ),
-            }
-
-            channel = await category.create_text_channel(
-                f"{ticket_name}-ticket-{username}", overwrites=overwrites
-            )
-
-            await interaction.user.add_roles(ticket_role)
-            welcomeView = TicketMessageView()
-            message = await welcomeView.interaction_close_callback(interaction, channel)
-            await interaction.response.send_message(
-                f"Ticket created! {channel.mention}", ephemeral=True
-            )
-            return message
-
-    view = TicketView()
-    message = await view.interaction_callback(interaction)
-    return message
-@bot.tree.command(name="create_channel", description="Admins are to lazy so this exists")
-async def c_channel(interaction: discord.Interaction, channel_name: str, category: discord.CategoryChannel = None, category_name: str = None):
+@bot.tree.command(
+    name="create_channel", description="Admins are to lazy so this exists"
+)
+async def c_channel(
+    interaction: discord.Interaction,
+    channel_name: str,
+    category: discord.CategoryChannel = None,
+    category_name: str = None,
+):
     guild = interaction.guild
     user = interaction.user
     if category is not None:
         overwrites = {
-                guild.default_role: discord.PermissionOverwrite(
-                    view_channel=False, read_messages=False
-                ),
-                guild.me: discord.PermissionOverwrite(
-                    read_messages=True, send_messages=True
-                ),
-                user: discord.PermissionOverwrite(
-                    read_messages=True, send_messages=True
-                )
-            }
-        await category.create_text_channel(
-            f"{channel_name}",
-            overwrites = overwrites
-        )
+            guild.default_role: discord.PermissionOverwrite(
+                view_channel=False, read_messages=False
+            ),
+            guild.me: discord.PermissionOverwrite(
+                read_messages=True, send_messages=True
+            ),
+            user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+        }
+        await category.create_text_channel(f"{channel_name}", overwrites=overwrites)
         await interaction.response.send_message("Channel created", ephemeral=True)
     else:
         if category_name is not None:
@@ -979,13 +1042,10 @@ async def c_channel(interaction: discord.Interaction, channel_name: str, categor
                 ),
                 user: discord.PermissionOverwrite(
                     read_messages=True, send_messages=True
-                )
+                ),
             }
         categoryname = await interaction.guild.create_category(name=category_name)
-        await categoryname.create_text_channel(
-            f"{channel_name}",
-            overwrites = overwrites
-        )
+        await categoryname.create_text_channel(f"{channel_name}", overwrites=overwrites)
         await interaction.response.send_message("Channel created", ephemeral=True)
 
 
@@ -994,79 +1054,113 @@ async def test(interaction: discord.Interaction):
     guild = interaction.guild_id
     await interaction.response.send_message("Unsynced Commands")
     await bot.tree.sync(guild=discord.Object(id=guild))
+
+
 # level system
 @bot.tree.command(name="rank", description="Display your current chat level")
-async def levelcard(interaction: discord.Interaction,
-                    user: discord.User = None):
-  if user is None:
-    user = interaction.user
+async def levelcard(interaction: discord.Interaction, user: discord.User = None):
+    if user is None:
+        user = interaction.user
 
-  guild_id = str(interaction.guild_id)
-  user_id = str(user.id)
+    guild_id = str(interaction.guild_id)
+    user_id = str(user.id)
 
-  levels = load("levels.json")
+    levels = load("levels.json")
 
-  if levels is not None and guild_id in levels and user_id in levels[guild_id]:
-    username = user.name
-    level = levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("level")
-    current_xp = levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("xp")
-    next_level = 5*level**2 + 50*level + 100
+    if levels is not None and guild_id in levels and user_id in levels[guild_id]:
+        username = user.name
+        level = (
+            levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("level")
+        )
+        current_xp = (
+            levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("xp")
+        )
+        next_level = 5 * level**2 + 50 * level + 100
 
-    card_width = 380
-    card_height = 110
-    progress_bar_radius = 50  # Adjust the radius for the circular progress bar
-    image = Image.new("RGB", (card_width, card_height), (255, 255, 255))
-    draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
-    large_font = ImageFont.load_default()
-    draw.text((20, 20),
-              f"{username}'s Card",
-              fill=(0, 0, 0),
-              font=large_font)
-    draw.text((20, 40), f"Level: {level}", fill=(0, 0, 0), font=large_font)
-    draw.text((20, 60), f"{current_xp}/{next_level} XP", fill=(0, 0, 0), font=large_font)
+        card_width = 900
+        card_height = 200
+        progress_bar_radius = 50  # Adjust the radius for the circular progress bar
+        image = Image.new("RGB", (card_width, card_height), (255, 255, 255))
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.truetype("Equestria.ttf")
+        small_font = ImageFont.truetype("Equestria.otf", size=20)
+        large_font = ImageFont.truetype("Equestria.otf", size=40)
+        draw.text((20, 20), f"{username}'s Card", fill=(0, 0, 0), font=large_font)
+        progress_ratio = current_xp / next_level
+        progress_width = int(900 * progress_ratio)  # Width of the progress bar
+        # draw.rectangle([(10, 10), (600, 190)], fill=(255, 255, 135))
+        draw.rectangle(
+            [(0, 0), (card_width - 1, card_height - 1)], fill=(90, 90, 90)
+        )  # 1 (Background)
+        draw.rectangle(
+            [(0, 205), (progress_width, 175)], fill=(255, 255, 135)
+        )  # Orange progress
+        draw.rectangle(
+            [(progress_width, 205), (900, 175)], fill=(100, 100, 100)
+        )  # Remaining progress
+        draw.rounded_rectangle([(10, 10), (585, 160)], 20, fill=(150, 150, 150))
+        # draw.rectangle([(10, 150), (585, 150)], fill=(150, 150, 150))#2 (Main Field has to be above background)
+        draw.rounded_rectangle([(610, 10), (890, 80)], 10, fill=(150, 150, 150))
+        draw.rounded_rectangle([(610, 90), (890, 160)], 10, fill=(150, 150, 150))
 
+        # Circular progress bar creation
+        draw.text(
+            (690, 25),
+            f"Level: {level}",
+            fill=(0, 0, 0),
+            font=large_font,
+            align="center",
+        )
+        draw.text(
+            (660, 100),
+            f"XP: {current_xp}/{next_level}",
+            fill=(0, 0, 0),
+            font=large_font,
+            align="center",
+        )
+        # Avatar handling
+        avatar_response = requests.get(user.avatar.url)
+        if avatar_response.status_code == 200:
+            avatar_image = Image.open(BytesIO(avatar_response.content))
+            avatar_image = avatar_image.resize(
+                (80, 80)
+            )  # Resize the avatar image if needed
 
-    # Circular progress bar creation
-    progress_bar_position = (200, 55)  # Adjust the position of the circular progress bar
-    end_angle = int(360 * (current_xp / next_level))
-    draw.arc([(progress_bar_position[0] - progress_bar_radius, progress_bar_position[1] - progress_bar_radius),
-              (progress_bar_position[0] + progress_bar_radius, progress_bar_position[1] + progress_bar_radius)],
-             start=0,
-             end=360,
-             fill=(200, 200, 200),
-             width=20)  # Draw background circle
+            # Calculate coordinates for circle
+            avatar_x, avatar_y = 50, 45
+            avatar_width, avatar_height = avatar_image.size
+            circle_thickness = 20
 
-    draw.arc([(progress_bar_position[0] - progress_bar_radius, progress_bar_position[1] - progress_bar_radius),
-              (progress_bar_position[0] + progress_bar_radius, progress_bar_position[1] + progress_bar_radius)],
-             start=0,
-             end=end_angle,
-             fill=(0, 128, 128),
-             width=20)  # Draw progress arc
+            # Create a circle with the specified thickness
 
-    # Draw the level number in the center of the circular progress bar
-    level_text = f"{level}"
-    text_position = (progress_bar_position[0] - len(level_text) * 5, progress_bar_position[1] - 7)
-    draw.text(text_position, level_text, fill=(0, 0, 0), font=font)
+            # Paste the avatar image on the center
+            image.paste(avatar_image, (avatar_x, avatar_y))
+            draw.ellipse(
+                [
+                    (avatar_x - circle_thickness, avatar_y - circle_thickness),
+                    (
+                        avatar_x + avatar_width + circle_thickness,
+                        avatar_y + avatar_height + circle_thickness,
+                    ),
+                ],
+                outline=(150, 150, 150),
+                width=circle_thickness,
+            )  # Change the color if needed
+            draw.rectangle([(0, 0), (500, 10)], fill=(90, 90, 90))
+        else:
+            print(
+                f"Failed to fetch the image. Status code: {avatar_response.status_code}"
+            )
+        draw.text((150, 60), "Rank: Coming soon", font=large_font, fill=(0, 0, 0))
+        image.save("level_card.png")
 
-    # Avatar handling
-    avatar_response = requests.get(user.avatar.url)
-    if avatar_response.status_code == 200:
-        avatar_image = Image.open(BytesIO(avatar_response.content))
-        avatar_image = avatar_image.resize((80, 80))  # Resize the avatar image if needed
-        image.paste(avatar_image, (290, 10))
+        # Send the level card
+        await interaction.response.send_message(file=discord.File("level_card.png"))
+        # os.remove("level_card.png")
     else:
-        print(f"Failed to fetch the image. Status code: {avatar_response.status_code}")
-
-    image.save("level_card.png")
-
-    # Send the level card
-    await interaction.response.send_message(file=discord.File("level_card.png")
-                                            )
-    os.remove("level_card.png")
-  else:
-    await interaction.response.send_message(
-        "You don't have a level yet. Start chatting to earn XP!", ephemeral=True)
+        await interaction.response.send_message(
+            "You don't have a level yet. Start chatting to earn XP!", ephemeral=True
+        )
 
 
 # commands
@@ -1080,7 +1174,10 @@ async def on_message(message):
         return
 
     # Check if user has a cooldown
-    if str(message.author.id) in xp_cooldown and time.time() - xp_cooldown[str(message.author.id)] < 60:
+    if (
+        str(message.author.id) in xp_cooldown
+        and time.time() - xp_cooldown[str(message.author.id)] < 60
+    ):
         print("Test")
         return
 
@@ -1102,62 +1199,66 @@ async def on_message(message):
         current_xp = 0
         xp = current_xp + add_xp
         lvl = 0
-        next_level = 5*lvl**2 + 50*lvl + 100
+        next_level = 5 * lvl**2 + 50 * lvl + 100
 
         if xp >= next_level:
             xp = xp - next_level
             lvl = lvl + 1
 
-        levels[str(message.guild.id)][str(message.author.id)].update({
-            "level": lvl,
-            "xp": xp 
-        })
-        
+        levels[str(message.guild.id)][str(message.author.id)].update(
+            {"level": lvl, "xp": xp}
+        )
+
         save(levels, "levels.json")
     else:
-
         if levels is None:
             levels = {}
         if str(message.guild.id) not in levels:
             levels[str(message.guild.id)] = {}
         if str(message.author.id) not in levels[str(message.guild.id)]:
             levels[str(message.guild.id)][str(message.author.id)] = {}
-        # Initialize new user entry
+            # Initialize new user entry
             add_xp = random.randint(15, 25)
             current_xp = 0
             xp = current_xp + add_xp
             lvl = 0
-            next_level = 5*lvl**2 + 50*lvl + 100
+            next_level = 5 * lvl**2 + 50 * lvl + 100
 
             if xp >= next_level:
                 xp = xp - next_level
                 lvl = lvl + 1
                 print(xp, lvl)
 
-            levels[str(message.guild.id)][str(message.author.id)].update({
-                "level": lvl,
-                "xp": xp 
-            })
+            levels[str(message.guild.id)][str(message.author.id)].update(
+                {"level": lvl, "xp": xp}
+            )
             save(levels, "levels.json")
         else:
-        # Existing user, update their data
+            # Existing user, update their data
             # user_levels = levels[str(guild_id)][str(user_id)]
-            lvl = levels.get(str(message.guild.id), {}).get(str(message.author.id), {}).get("level")
-            current_xp = levels.get(str(message.guild.id), {}).get(str(message.author.id), {}).get("xp")
+            lvl = (
+                levels.get(str(message.guild.id), {})
+                .get(str(message.author.id), {})
+                .get("level")
+            )
+            current_xp = (
+                levels.get(str(message.guild.id), {})
+                .get(str(message.author.id), {})
+                .get("xp")
+            )
             add_xp = random.randint(15, 25)
             xp = current_xp + add_xp
             print(xp)
-            next_level = 5*lvl**2 + 50*lvl + 100
+            next_level = 5 * lvl**2 + 50 * lvl + 100
 
             if xp >= next_level:
                 xp = xp - next_level
                 lvl = lvl + 1
                 print(xp, lvl)
 
-            levels[str(message.guild.id)][str(message.author.id)].update({
-                "level": lvl,
-                "xp": xp 
-            })
+            levels[str(message.guild.id)][str(message.author.id)].update(
+                {"level": lvl, "xp": xp}
+            )
             print(levels)
             save(levels, "levels.json")
 
@@ -1169,12 +1270,13 @@ async def on_ready():
     global guild
     await bot.change_presence(
         activity=discord.Activity(
-            type=discord.ActivityType.watching, name="A Heartswarming Tail"
+            type=discord.ActivityType.playing,
+            name="with Pedrito, Vogia, Starshine, Rust, EE, DrSwagFox, Darkstone and Trixie",
         )
     )
     print("logged in")
-    await bot.tree.sync(guild=discord.Object(id=1086048263620276254)) # place
-    #await bot.tree.sync(guild=discord.Object(id=1183697496342536252)) # test
+    # await bot.tree.sync(guild=discord.Object(id=1086048263620276254)) # place
+    await bot.tree.sync(guild=discord.Object(id=1183697496342536252))  # test
     try:
         synced = await bot.tree.sync()
         print(f"Synced{len(synced)} command(s)")
