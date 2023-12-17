@@ -1,4 +1,4 @@
-from typing import Optional, Self, Union
+from typing import Optional, Union
 from discord import app_commands
 from discord.ext import commands
 import discord
