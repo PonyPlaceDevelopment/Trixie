@@ -1,4 +1,4 @@
-from typing import Optional, Union
+#from typing import Optional, Union
 from discord import app_commands
 from discord.ext import commands
 import discord
@@ -1102,7 +1102,7 @@ async def on_message(message):
         current_xp = 0
         xp = current_xp + add_xp
         lvl = 0
-        next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+        next_level = 5*lvl**2 + 50*lvl + 100
 
         if xp >= next_level:
             xp = xp - next_level
@@ -1127,7 +1127,7 @@ async def on_message(message):
             current_xp = 0
             xp = current_xp + add_xp
             lvl = 0
-            next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+            next_level = 5*lvl**2 + 50*lvl + 100
 
             if xp >= next_level:
                 xp = xp - next_level
@@ -1147,7 +1147,7 @@ async def on_message(message):
             add_xp = random.randint(15, 25)
             xp = current_xp + add_xp
             print(xp)
-            next_level = 5 * (lvl ^ 2) + (50 * lvl) + 100
+            next_level = 5*lvl**2 + 50*lvl + 100
 
             if xp >= next_level:
                 xp = xp - next_level
