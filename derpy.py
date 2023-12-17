@@ -1010,7 +1010,7 @@ async def levelcard(interaction: discord.Interaction,
     username = user.name
     level = levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("level")
     current_xp = levels.get(str(interaction.guild_id), {}).get(str(user_id), {}).get("xp")
-    next_level = 5 * (level ^ 2) + (50 * level) + 100
+    next_level = 5*level**2 + 50*level + 100
 
     card_width = 380
     card_height = 110
