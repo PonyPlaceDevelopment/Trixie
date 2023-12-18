@@ -1296,12 +1296,12 @@ async def count_messages(interaction: discord.Interaction):
                 current_count = 0
 
     # Save message count data for the guild to a JSON file
-    with open(f'guild_{guild_id}_message_count.json', 'w') as file:
+    with open(f'guild_{guild_id}_message_counts.json', 'w') as file:
         json.dump(data, file, indent=4)
         
     await progress_message.edit(content="Message counts saved to JSON file!")
-    await interaction.channel.send(file=discord.File(f"guild_{guild_id}_message_count.json", filename="transcript.html"))
-    os.remove(f"guild_{guild_id}_message_count.json")
+    await interaction.channel.send(file=discord.File(f"guild_{guild_id}_message_counts.json", filename="transcript.html"))
+    os.remove(f"guild_{guild_id}_message_counts.json")
 @bot.event
 async def on_ready():
     global guild
