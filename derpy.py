@@ -1273,18 +1273,11 @@ async def count_messages(interaction: discord.Interaction):
     guild_id = str(interaction.guild.id)
     data = {}
 
-    total_messages = 0
-    # Count total messages for progress estimation
-    for channel in interaction.guild.text_channels:
-        async for _ in channel.history(limit=None):
-            total_messages += 1
-            print(total_messages)
-
     current_count = 0
     update_frequency = 1000  # Update progress every 1000 messages
     progress_message = await interaction.original_response()
 
-    await progress_message.edit(content=f"Progress: 0/{total_messages} messages counted")
+    await progress_message.edit(content=f"Progress: 0 messages counted")
 
     for channel in interaction.guild.text_channels:
         async for msg in channel.history(limit=None):  # Changed 'message' to 'msg'
@@ -1299,7 +1292,7 @@ async def count_messages(interaction: discord.Interaction):
             # Update progress message
             if current_count % update_frequency == 0:
                 message = await interaction.original_response()
-                await message.edit(content=f"Progress: {current_count}/{total_messages} messages counted")
+                await message.edit(content=f"Progress: {current_count} messages counted")
                 current_count = 0
 
     # Save message count data for the guild to a JSON file
