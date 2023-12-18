@@ -1227,6 +1227,7 @@ async def on_message(message):
             if xp >= next_level:
                 xp = xp - next_level
                 lvl = lvl + 1
+                await message.channel.send(f"{message.author.mention} Level Up! You are now Level: {lvl}")
                 print(xp, lvl)
 
             levels[str(message.guild.id)][str(message.author.id)].update(
@@ -1254,6 +1255,7 @@ async def on_message(message):
             if xp >= next_level:
                 xp = xp - next_level
                 lvl = lvl + 1
+                await message.channel.send(f"{message.author.mention} Level Up! You are now Level: {lvl}")
                 print(xp, lvl)
 
             levels[str(message.guild.id)][str(message.author.id)].update(
@@ -1270,8 +1272,8 @@ async def on_ready():
     global guild
     await bot.change_presence(
         activity=discord.Activity(
-            type=discord.ActivityType.playing,
-            name="with Pedrito, Vogia, Starshine, Rust, EE, DrSwagFox, Darkstone and Trixie",
+            type=discord.ActivityType.watching,
+            name="Coaster",
         )
     )
     print("logged in")
