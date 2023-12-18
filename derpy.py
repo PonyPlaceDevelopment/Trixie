@@ -1275,7 +1275,7 @@ async def count_messages(interaction: discord.Interaction):
 
     current_count = 0
     update = 0
-    update_frequency = 1000  # Update progress every 1000 messages
+    update_frequency = 10000  # Update progress every 1000 messages
     progress_message = await interaction.original_response()
 
     await progress_message.edit(content=f"Progress: 0 messages counted")
