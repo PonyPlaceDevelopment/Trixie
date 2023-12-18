@@ -1293,8 +1293,7 @@ async def count_messages(interaction: discord.Interaction):
             update += 1
             # Update progress message
             if update % update_frequency == 0:
-                message = await interaction.original_response()
-                await message.edit(content=f"Progress: {current_count} messages counted")
+                await progress_message.channel.send(f"Progress: {current_count} messages counted")
                 update = 0
 
     # Save message count data for the guild to a JSON file
