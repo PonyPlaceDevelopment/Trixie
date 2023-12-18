@@ -1266,7 +1266,49 @@ async def on_message(message):
 
   # After XP is earned, update the cooldown
     xp_cooldown[str(message.author.id)] = time.time()
+@bot.tree.command(name="count_server_messages", description="Counts messages in all channels")
+async def count_messages(interaction: discord.Interaction):
+    await interaction.response.send_message("Count started. This may take some time...")
+    
+    guild_id = str(interaction.guild.id)
+    data = {}
 
+    total_messages = 0
+    # Count total messages for progress estimation
+    for channel in interaction.guild.text_channels:
+        async for _ in channel.history(limit=None):
+            total_messages += 1
+            print(total_messages)
+
+    current_count = 0
+    update_frequency = 1000  # Update progress every 1000 messages
+    progress_message = await interaction.original_response()
+
+    await progress_message.edit(content=f"Progress: 0/{total_messages} messages counted")
+
+    for channel in interaction.guild.text_channels:
+        async for msg in channel.history(limit=None):  # Changed 'message' to 'msg'
+            user_id = str(msg.author.name)
+            # Update message count for the user
+            if user_id in data:
+                data[user_id] += 1
+            else:
+                data[user_id] = 1
+
+            current_count += 1
+            # Update progress message
+            if current_count % update_frequency == 0:
+                message = await interaction.original_response()
+                await message.edit(content=f"Progress: {current_count}/{total_messages} messages counted")
+                current_count = 0
+
+    # Save message count data for the guild to a JSON file
+    with open(f'guild_{guild_id}_message_count.json', 'w') as file:
+        json.dump(data, file, indent=4)
+        
+    await progress_message.edit(content="Message counts saved to JSON file!")
+    await interaction.channel.send(file=discord.File(f"guild_{guild_id}_message_count.json", filename="transcript.html"))
+    os.remove(f"guild_{guild_id}_message_count.json")
 @bot.event
 async def on_ready():
     global guild
@@ -1277,8 +1319,8 @@ async def on_ready():
         )
     )
     print("logged in")
-    # await bot.tree.sync(guild=discord.Object(id=1086048263620276254)) # place
-    await bot.tree.sync(guild=discord.Object(id=1183697496342536252))  # test
+    await bot.tree.sync(guild=discord.Object(id=1086048263620276254)) # place
+    # await bot.tree.sync(guild=discord.Object(id=1183697496342536252))  # test
     try:
         synced = await bot.tree.sync()
         print(f"Synced{len(synced)} command(s)")
