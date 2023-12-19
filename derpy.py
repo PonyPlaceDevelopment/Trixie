@@ -1303,7 +1303,7 @@ async def count_messages(interaction: discord.Interaction):
         if response.status_code ==200:
             file_info = response.json()
             download_link = file_info['link']
-            await interaction.channel.send("download_link)
+            await interaction.channel.send("download_link")
         
     await progress_message.edit(content="Message counts saved to JSON file!")
     os.remove(f"guild_{guild_id}_message_countss.json")
