@@ -1227,7 +1227,6 @@ async def on_message(message):
             if xp >= next_level:
                 xp = xp - next_level
                 lvl = lvl + 1
-                await message.channel.send(f"{message.author.mention} Level Up! You are now Level: {lvl}")
                 print(xp, lvl)
 
             levels[str(message.guild.id)][str(message.author.id)].update(
@@ -1255,7 +1254,6 @@ async def on_message(message):
             if xp >= next_level:
                 xp = xp - next_level
                 lvl = lvl + 1
-                await message.channel.send(f"{message.author.mention} Level Up! You are now Level: {lvl}")
                 print(xp, lvl)
 
             levels[str(message.guild.id)][str(message.author.id)].update(
